@@ -1,3 +1,13 @@
+import subprocess
+import sys
+
+# Kütüphane hatasını kökten çözen otomatik yükleyici mekanizma
+try:
+    import plotly
+    import pandas
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "plotly", "pandas"])
+
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -17,8 +27,8 @@ st.markdown("""
 st.title("💰 Kasamla / Harcama Portföyü")
 
 # Veritabanı (Session State)
-if "harcamalar" not in st.session_state:
-    st.session_state.harcamalar = pd.DataFrame(columns=["Tarih", "Harcama Adı", "Miktar (€)"])
+if "harcemeler" not in st.session_state:
+    st.session_state.harcemeler = pd.DataFrame(columns=["Tarih", "Harcama Adı", "Miktar (€)"])
 
 AYLIK_BUTCE = 500.0
 
@@ -35,11 +45,11 @@ with st.form("harcama_formu", clear_on_submit=True):
     
     if ekle_btn and harcama_adi and miktar > 0:
         yeni_veri = pd.DataFrame([{"Tarih": datetime.now().strftime("%Y-%m-%d %H:%M"), "Harcama Adı": harcama_adi, "Miktar (€)": miktar}])
-        st.session_state.harcamalar = pd.concat([st.session_state.harcamalar, yeni_veri], ignore_index=True)
+        st.session_state.harcemeler = pd.concat([st.session_state.harcemeler, yeni_veri], ignore_index=True)
         st.success(f"✅ {harcama_adi} eklendi!")
 
 # Dashboard
-df = st.session_state.harcamalar
+df = st.session_state.harcemeler
 st.write("---")
 st.subheader("📊 Bu Ayki Nakit Akışı")
 
