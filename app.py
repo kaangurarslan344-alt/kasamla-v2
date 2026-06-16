@@ -3,59 +3,73 @@ import pandas as pd
 from datetime import datetime
 
 # Sayfa Ayarları
-st.set_page_config(page_title="Kasamla Portföy", page_icon="💰", layout="centered")
+st.set_page_config(page_title="Kasamla Premium", page_icon="💸", layout="centered")
 
-# Karanlık Tema
+# Karanlık Mod (Dark Mode) Zorlaması ve Arayüz Ayarları
 st.markdown("""
     <style>
-    .main { background-color: #111625; color: #ffffff; }
-    div[data-testid="stMetricValue"] { color: #ff5252 !important; }
+    .main { background-color: #0E1117; color: #FFFFFF; }
+    div[data-testid="stMetricValue"] { font-size: 2rem !important; }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-st.title("💰 Kasamla / Harcama Portföyü")
+st.title("💸 Kasamla Portföy")
 
-# Veritabanı
-if "harcamalar" not in st.session_state:
-    st.session_state.harcamalar = pd.DataFrame(columns=["Tarih", "Harcama Adı", "Miktar (€)"])
+# Veritabanı oluştur
+if "islemler" not in st.session_state:
+    st.session_state.islemler = pd.DataFrame(columns=["Tarih", "Tür", "Kategori", "Miktar (€)"])
 
-AYLIK_BUTCE = 500.0
+# 📱 UYGULAMA SEKMELERİ (Tasarımı Şıklaştıran Kısım)
+tab_ana, tab_ekle, tab_gecmis = st.tabs(["📊 Ana Panel", "➕ İşlem Ekle", "📋 Tüm Geçmiş"])
 
-# Harcama Ekleme
-st.subheader("➕ Hızlı Harcama Ekle")
-with st.form("harcama_formu", clear_on_submit=True):
-    col1, col2 = st.columns(2)
-    with col1:
-        harcama_adi = st.text_input("Harcama Adı", placeholder="Örn: Monster").strip().capitalize()
-    with col2:
-        miktar = st.number_input("Miktar (€)", min_value=0.0, step=0.50, format="%.2f")
+df = st.session_state.islemler
+
+# --- SEKME 2: GELİR VE GİDER EKLEME EKRANI ---
+with tab_ekle:
+    st.subheader("Gelir veya Gider Ekle")
     
-    ekle_btn = st.form_submit_button("Portföye Ekle")
+    # + Gelir ve - Gider Seçeneği (Uygulama Hissiyatı)
+    islem_turu = st.radio("İşlem Türünü Seçin:", ["🔴 Gider (-)", "🟢 Gelir (+)"], horizontal=True)
     
-    if ekle_btn and harcama_adi and miktar > 0:
-        yeni_veri = pd.DataFrame([{"Tarih": datetime.now().strftime("%Y-%m-%d %H:%M"), "Harcama Adı": harcama_adi, "Miktar (€)": miktar}])
-        st.session_state.harcamalar = pd.concat([st.session_state.harcamalar, yeni_veri], ignore_index=True)
-        st.success(f"✅ {harcama_adi} eklendi!")
+    with st.form("islem_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            kategori = st.text_input("Nereye / Nereden?", placeholder="Örn: Monster, Maaş, Kira").strip().capitalize()
+        with col2:
+            # Euro bazlı giriş
+            miktar = st.number_input("Miktar (€)", min_value=0.0, step=1.0, format="%.2f")
+        
+        kaydet = st.form_submit_button("Portföye İşle")
+        
+        if kaydet and kategori and miktar > 0:
+            tur = "Gelir" if "Gelir" in islem_turu else "Gider"
+            yeni_islem = pd.DataFrame([{"Tarih": datetime.now().strftime("%Y-%m-%d %H:%M"), "Tür": tur, "Kategori": kategori, "Miktar (€)": miktar}])
+            st.session_state.islemler = pd.concat([st.session_state.islemler, yeni_islem], ignore_index=True)
+            st.success(f"✅ {kategori} ({tur}) başarıyla eklendi!")
 
-# Dashboard Özeti
-df = st.session_state.harcamalar
-st.write("---")
-st.subheader("📊 Bu Ayki Nakit Akışı")
+# --- SEKME 1: ANA DASHBOARD (Özet ve Grafikler) ---
+with tab_ana:
+    # Arka planda net bakiye hesaplamaları
+    toplam_gelir = df[df["Tür"] == "Gelir"]["Miktar (€)"].sum() if not df.empty else 0.0
+    toplam_gider = df[df["Tür"] == "Gider"]["Miktar (€)"].sum() if not df.empty else 0.0
+    net_bakiye = toplam_gelir - toplam_gider
 
-toplam_gider = df["Miktar (€)"].sum() if not df.empty else 0.0
-kalan_butce = AYLIK_BUTCE - toplam_gider
+    # Şık Metrik Kartları
+    st.write("### 💳 Cüzdan Özeti")
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Toplam Bakiye (Net)", f"€{net_bakiye:.2f}")
+    c2.metric("Toplam Gelir (+)", f"€{toplam_gelir:.2f}")
+    c3.metric("Toplam Gider (-)", f"€{toplam_gider:.2f}")
 
-c1, c2 = st.columns(2)
-c1.metric(label="Toplam Harcanan", value=f"-€{toplam_gider:.2f}")
-c2.metric(label="Kalan Bütçe", value=f"€{kalan_butce:.2f}", delta_color="normal")
-
-# Kendi İçindeki Çubuk Grafiği (Sorunsuz Çalışır)
-if not df.empty:
     st.write("---")
-    st.subheader("🎯 Harcama Dağılımı")
+    st.subheader("🎯 Gider Dağılımı (Portföy)")
     
-    grup_df = df.groupby("Harcama Adı")["Miktar (€)"].sum()
-    st.bar_chart(grup_df)
-    
-    st.subheader("📋 Harcama Geçmişi")
-    st.dataframe(df.sort_index(ascending=False), use_container_width=True)
+    if not df.empty and toplam_gider > 0:
+        # Sadece harcamaları grafikleştirir (Maaşı portföy dağılımına katmaz)
+        gider_df = df[df["Tür"] == "Gider"]
+        grup_df = gider_df.groupby("Kategori")["Miktar (€)"].sum().reset_index()
+        
+        # Harcamaları şık bir kırmızı bar grafiğiyle göster
+        st.bar_chart(grup_df.set_index("Kategori"), color="#ff5252")
+    else:
+        st.info("Henüz bir harcama (gider) verisi yok. İşlem Ekle kısm
