@@ -6,7 +6,6 @@ import altair as alt
 # 1. Sayfa Ayarları ve Birebir Görsel Teması (Dark Mode)
 st.set_page_config(page_title="Kasamla", page_icon="📊", layout="centered")
 
-# Görseldeki (image.png) premium renk kodları ve kart tasarımları
 st.markdown("""
     <style>
     .main { background-color: #0b0f19; color: #ffffff; }
@@ -21,29 +20,21 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# 2. Veritabanı Altyapısı
+# 2. Veritabanı Altyapısı (Tüm Hazır Veriler Temizlendi - Sıfır Liste)
 if "islemler" not in st.session_state:
-    # Görseldeki verilerle birebir örtüşen başlangıç örnek verileri (İstersen silebilirsin)
-    st.session_state.islemler = pd.DataFrame([
-        {"Tarih": "2026-05-15", "Tür": "Gelir", "Kategori": "Maaş / Gelir", "Miktar": 182000},
-        {"Tarih": "2026-05-16", "Tür": "Gider", "Kategori": "Kredi Kartı", "Miktar": 59535},
-        {"Tarih": "2026-05-17", "Tür": "Gider", "Kategori": "Evim Sistemi", "Miktar": 41674},
-        {"Tarih": "2026-05-18", "Tür": "Gider", "Kategori": "Kredi", "Miktar": 33736},
-        {"Tarih": "2026-05-19", "Tür": "Gider", "Kategori": "Kira", "Miktar": 25800},
-        {"Tarih": "2026-05-20", "Tür": "Gider", "Kategori": "Diğer", "Miktar": 37705}
-    ])
+    st.session_state.islemler = pd.DataFrame(columns=["Tarih", "Tür", "Kategori", "Miktar"])
 
 df = st.session_state.islemler
 
 # --- ÜST BAŞLIK VE TARİH ALANI ---
 st.markdown('<div class="kasamla-header">Kasamla</div>', unsafe_allow_html=True)
-st.markdown('<div class="date-range">‹ &nbsp; 15 May – 14 Haz &nbsp; ›</div>', unsafe_allow_html=True)
+st.markdown('<div class="date-range">‹ &nbsp; Bu Ay &nbsp; ›</div>', unsafe_allow_html=True)
 
 # Hesaplamalar
 toplam_gelir = df[df["Tür"] == "Gelir"]["Miktar"].sum() if not df.empty else 0.0
 toplam_gider = df[df["Tür"] == "Gider"]["Miktar"].sum() if not df.empty else 0.0
 nakit_akisi = toplam_gelir - toplam_gider
-toplam_varlik = nakit_akisi # Görseldeki mantık
+toplam_varlik = nakit_akisi 
 
 # --- 1. ANA KART: NAKİT AKIŞI ---
 akis_class = "nakit-akis-value" if nakit_akisi <= 0 else "nakit-akis-value-pos"
@@ -77,38 +68,21 @@ if not df.empty and toplam_gider > 0:
     grup_df = gider_df.groupby("Kategori")["Miktar"].sum().reset_index()
     grup_df["Yüzde"] = (grup_df["Miktar"] / toplam_gider * 100).round(0).astype(str) + "%"
     
-    # Birebir görseldeki gibi ortası delik yuvarlak halka grafiği (Donut)
+    # Renkler artık sabit değil, girdiğin kategoriye göre otomatik atanacak
     donut = alt.Chart(grup_df).mark_arc(innerRadius=65, outerRadius=95).encode(
         theta=alt.Theta(field="Miktar", type="quantitative"),
-        color=alt.Color(field="Kategori", type="nominal", scale=alt.Scale(
-            domain=['Kredi Kartı', 'Evim Sistemi', 'Kredi', 'Kira', 'Diğer', 'Monster'],
-            range=['#ff9f43', '#ff5252', '#267cb5', '#2ecc71', '#8a99ad', '#a55eea']
-        ), legend=alt.Legend(title="Gider Dağılımı", orient="right")),
+        color=alt.Color(field="Kategori", type="nominal", scale=alt.Scale(scheme='category20'), legend=alt.Legend(title="Gider Dağılımı", orient="right")),
         tooltip=['Kategori', 'Miktar']
     ).properties(height=240).configure_view(strokeWidth=0)
     
     st.altair_chart(donut, use_container_width=True)
     
-    # Ortadaki "Gider" yazısını alt metin olarak simüle ediyoruz
     st.markdown(f"<div style='text-align:center; color:#8a99ad; font-size:14px; margin-top:-30px;'>Halkadaki Toplam Gider: <b style='color:#ff5252;'>₺ {toplam_gider:.0f}</b></div>", unsafe_allow_html=True)
 else:
-    st.info("Henüz harcama verisi girilmedi.")
+    st.info("Portföyün şu an tertemiz! Aşağıdan ilk gelir veya giderini ekleyebilirsin.")
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 3. KART: BÜTÇE HEDEFLERİ ---
-st.markdown('<div class="row-box">', unsafe_allow_html=True)
-st.markdown('<div class="card-title">Bütçe Hedefleri</div>', unsafe_allow_html=True)
-
-# Yemek Hedefi Örneği
-st.markdown('<div class="sub-text">🍔 Yemek (3950 ₺ harcandı)</div>', unsafe_allow_html=True)
-st.progress(0.75) # Çubuğun doluluk oranı
-
-# Yakıt Hedefi Örneği
-st.markdown('<div class="sub-text">🚗 YAKIT (7300 / 10000 ₺)</div>', unsafe_allow_html=True)
-st.progress(0.73)
-st.markdown('</div>', unsafe_allow_html=True)
-
-# --- 4. DİNAMİK İŞLEM EKLEME ALANI ---
+# --- 3. DİNAMİK İŞLEM EKLEME ALANI ---
 st.markdown('<div class="row-box">', unsafe_allow_html=True)
 st.markdown('<div class="card-title">➕ Yeni Gelir / Gider Ekle</div>', unsafe_allow_html=True)
 
@@ -117,7 +91,7 @@ islem_turu = st.radio("Tür Seçin:", ["🔴 Gider (-)", "🟢 Gelir (+)"], hori
 with st.form("yeni_islem_formu", clear_on_submit=True):
     c1, c2 = st.columns(2)
     with c1:
-        kat_input = st.text_input("Açıklama / Kategori", placeholder="Örn: Monster, Maaş, Kira").strip()
+        kat_input = st.text_input("Açıklama / Kategori", placeholder="Örn: Katılım Fonu, Altın, Monster...").strip().capitalize()
     with c2:
         mik_input = st.number_input("Miktar (₺)", min_value=0.0, step=10.0, format="%.2f")
     
@@ -125,5 +99,17 @@ with st.form("yeni_islem_formu", clear_on_submit=True):
     
     if submit and kat_input and mik_input > 0:
         tur_net = "Gelir" if "Gelir" in islem_turu else "Gider"
-        yeni_satir = pd.DataFrame([{"Tarih": datetime.now().strftime("%Y-%m-%d"), "Tür": tur_net, "Kategori": kat_input, "Miktar": mik_input}])
+        yeni_satir = pd.DataFrame([{"Tarih": datetime.now().strftime("%Y-%m-%d %H:%M"), "Tür": tur_net, "Kategori": kat_input, "Miktar": mik_input}])
         st.session_state.islemler = pd.concat([st.session_state.islemler, yeni_satir], ignore_index=True)
+        st.rerun()
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+# --- 4. TÜM İŞLEMLER LİSTESİ ---
+st.markdown('<div class="row-box">', unsafe_allow_html=True)
+st.markdown('<div class="card-title">📋 İşlem Geçmişi</div>', unsafe_allow_html=True)
+if not df.empty:
+    st.dataframe(df.sort_index(ascending=False), use_container_width=True, hide_index=True)
+else:
+    st.write("Henüz bir işlem yapılmadı.")
+st.markdown('</div>', unsafe_allow_html=True)
