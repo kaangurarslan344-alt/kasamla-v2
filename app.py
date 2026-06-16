@@ -72,4 +72,13 @@ with tab_ana:
         # Harcamaları şık bir kırmızı bar grafiğiyle göster
         st.bar_chart(grup_df.set_index("Kategori"), color="#ff5252")
     else:
-        st.info("Henüz bir harcama (gider) verisi yok. İşlem Ekle kısm
+        st.info("Henüz bir harcama (gider) verisi yok. İşlem Ekle kısmından ekleyebilirsin.")
+
+# --- SEKME 3: HESAP HAREKETLERİ ---
+with tab_gecmis:
+    st.subheader("Tüm Hesap Hareketleri")
+    if not df.empty:
+        # En son yapılan işlemi en üstte gösterir
+        st.dataframe(df.sort_index(ascending=False), use_container_width=True, hide_index=True)
+    else:
+        st.write("Henüz bir işlem yapılmadı.")
