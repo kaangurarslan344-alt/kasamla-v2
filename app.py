@@ -1,84 +1,129 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import altair as alt
 
-# Sayfa Ayarları
-st.set_page_config(page_title="Kasamla Premium", page_icon="💸", layout="centered")
+# 1. Sayfa Ayarları ve Birebir Görsel Teması (Dark Mode)
+st.set_page_config(page_title="Kasamla", page_icon="📊", layout="centered")
 
-# Karanlık Mod (Dark Mode) Zorlaması ve Arayüz Ayarları
+# Görseldeki (image.png) premium renk kodları ve kart tasarımları
 st.markdown("""
     <style>
-    .main { background-color: #0E1117; color: #FFFFFF; }
-    div[data-testid="stMetricValue"] { font-size: 2rem !important; }
+    .main { background-color: #0b0f19; color: #ffffff; }
+    .kasamla-header { text-align: center; color: #ff9f43; font-size: 28px; font-weight: bold; margin-bottom: 2px; }
+    .date-range { text-align: center; color: #8a99ad; font-size: 16px; margin-bottom: 20px; }
+    .main-card { background-color: #161b2b; border-radius: 16px; padding: 20px; margin-bottom: 20px; text-align: center; border: 1px solid #232a45; }
+    .sub-text { color: #8a99ad; font-size: 14px; margin-bottom: 5px; }
+    .nakit-akis-value { font-size: 36px; font-weight: bold; color: #ff5252; margin: 10px 0; }
+    .nakit-akis-value-pos { font-size: 36px; font-weight: bold; color: #2ecc71; margin: 10px 0; }
+    .row-box { background-color: #161b2b; border-radius: 16px; padding: 20px; margin-bottom: 20px; border: 1px solid #232a45; }
+    .card-title { font-size: 18px; font-weight: bold; color: #ffffff; margin-bottom: 15px; }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("💸 Kasamla Portföy")
-
-# Veritabanı oluştur
+# 2. Veritabanı Altyapısı
 if "islemler" not in st.session_state:
-    st.session_state.islemler = pd.DataFrame(columns=["Tarih", "Tür", "Kategori", "Miktar (€)"])
-
-# 📱 UYGULAMA SEKMELERİ (Tasarımı Şıklaştıran Kısım)
-tab_ana, tab_ekle, tab_gecmis = st.tabs(["📊 Ana Panel", "➕ İşlem Ekle", "📋 Tüm Geçmiş"])
+    # Görseldeki verilerle birebir örtüşen başlangıç örnek verileri (İstersen silebilirsin)
+    st.session_state.islemler = pd.DataFrame([
+        {"Tarih": "2026-05-15", "Tür": "Gelir", "Kategori": "Maaş / Gelir", "Miktar": 182000},
+        {"Tarih": "2026-05-16", "Tür": "Gider", "Kategori": "Kredi Kartı", "Miktar": 59535},
+        {"Tarih": "2026-05-17", "Tür": "Gider", "Kategori": "Evim Sistemi", "Miktar": 41674},
+        {"Tarih": "2026-05-18", "Tür": "Gider", "Kategori": "Kredi", "Miktar": 33736},
+        {"Tarih": "2026-05-19", "Tür": "Gider", "Kategori": "Kira", "Miktar": 25800},
+        {"Tarih": "2026-05-20", "Tür": "Gider", "Kategori": "Diğer", "Miktar": 37705}
+    ])
 
 df = st.session_state.islemler
 
-# --- SEKME 2: GELİR VE GİDER EKLEME EKRANI ---
-with tab_ekle:
-    st.subheader("Gelir veya Gider Ekle")
+# --- ÜST BAŞLIK VE TARİH ALANI ---
+st.markdown('<div class="kasamla-header">Kasamla</div>', unsafe_allow_html=True)
+st.markdown('<div class="date-range">‹ &nbsp; 15 May – 14 Haz &nbsp; ›</div>', unsafe_allow_html=True)
+
+# Hesaplamalar
+toplam_gelir = df[df["Tür"] == "Gelir"]["Miktar"].sum() if not df.empty else 0.0
+toplam_gider = df[df["Tür"] == "Gider"]["Miktar"].sum() if not df.empty else 0.0
+nakit_akisi = toplam_gelir - toplam_gider
+toplam_varlik = nakit_akisi # Görseldeki mantık
+
+# --- 1. ANA KART: NAKİT AKIŞI ---
+akis_class = "nakit-akis-value" if nakit_akisi <= 0 else "nakit-akis-value-pos"
+akis_sign = "" if nakit_akisi > 0 else "-"
+st.markdown(f"""
+    <div class="main-card">
+        <div class="sub-text" style="color: #ffb142;">Toplam Varlık: ₺ {toplam_varlik:.0f}</div>
+        <div class="sub-text">Bu Ayki Nakit Akışı</div>
+        <div class="{akis_class}">{akis_sign}₺ {abs(nakit_akisi):.0f}</div>
+        <table style="width:100%; margin-top:15px; border-top: 1px solid #232a45; padding-top:10px;">
+            <tr>
+                <td style="width:50%; text-align:center;">
+                    <div class="sub-text">⬇️ Bu Ay Gelir</div>
+                    <div style="color: #2ecc71; font-weight:bold; font-size:18px;">₺ {toplam_gelir:.0f}</div>
+                </td>
+                <td style="width:50%; text-align:center; border-left: 1px solid #232a45;">
+                    <div class="sub-text">⬆️ Bu Ay Gider</div>
+                    <div style="color: #ff5252; font-weight:bold; font-size:18px;">₺ {toplam_gider:.0f}</div>
+                </td>
+            </tr>
+        </table>
+    </div>
+""", unsafe_allow_html=True)
+
+# --- 2. KART: HARCAMA DAĞILIMI (DONUT CHART) ---
+st.markdown('<div class="row-box">', unsafe_allow_html=True)
+st.markdown('<div class="card-title">Harcama Dağılımı</div>', unsafe_allow_html=True)
+
+if not df.empty and toplam_gider > 0:
+    gider_df = df[df["Tür"] == "Gider"]
+    grup_df = gider_df.groupby("Kategori")["Miktar"].sum().reset_index()
+    grup_df["Yüzde"] = (grup_df["Miktar"] / toplam_gider * 100).round(0).astype(str) + "%"
     
-    # + Gelir ve - Gider Seçeneği (Uygulama Hissiyatı)
-    islem_turu = st.radio("İşlem Türünü Seçin:", ["🔴 Gider (-)", "🟢 Gelir (+)"], horizontal=True)
+    # Birebir görseldeki gibi ortası delik yuvarlak halka grafiği (Donut)
+    donut = alt.Chart(grup_df).mark_arc(innerRadius=65, outerRadius=95).encode(
+        theta=alt.Theta(field="Miktar", type="quantitative"),
+        color=alt.Color(field="Kategori", type="nominal", scale=alt.Scale(
+            domain=['Kredi Kartı', 'Evim Sistemi', 'Kredi', 'Kira', 'Diğer', 'Monster'],
+            range=['#ff9f43', '#ff5252', '#267cb5', '#2ecc71', '#8a99ad', '#a55eea']
+        ), legend=alt.Legend(title="Gider Dağılımı", orient="right")),
+        tooltip=['Kategori', 'Miktar']
+    ).properties(height=240).configure_view(strokeWidth=0)
     
-    with st.form("islem_form", clear_on_submit=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            kategori = st.text_input("Nereye / Nereden?", placeholder="Örn: Monster, Maaş, Kira").strip().capitalize()
-        with col2:
-            # Euro bazlı giriş
-            miktar = st.number_input("Miktar (€)", min_value=0.0, step=1.0, format="%.2f")
-        
-        kaydet = st.form_submit_button("Portföye İşle")
-        
-        if kaydet and kategori and miktar > 0:
-            tur = "Gelir" if "Gelir" in islem_turu else "Gider"
-            yeni_islem = pd.DataFrame([{"Tarih": datetime.now().strftime("%Y-%m-%d %H:%M"), "Tür": tur, "Kategori": kategori, "Miktar (€)": miktar}])
-            st.session_state.islemler = pd.concat([st.session_state.islemler, yeni_islem], ignore_index=True)
-            st.success(f"✅ {kategori} ({tur}) başarıyla eklendi!")
-
-# --- SEKME 1: ANA DASHBOARD (Özet ve Grafikler) ---
-with tab_ana:
-    # Arka planda net bakiye hesaplamaları
-    toplam_gelir = df[df["Tür"] == "Gelir"]["Miktar (€)"].sum() if not df.empty else 0.0
-    toplam_gider = df[df["Tür"] == "Gider"]["Miktar (€)"].sum() if not df.empty else 0.0
-    net_bakiye = toplam_gelir - toplam_gider
-
-    # Şık Metrik Kartları
-    st.write("### 💳 Cüzdan Özeti")
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Toplam Bakiye (Net)", f"€{net_bakiye:.2f}")
-    c2.metric("Toplam Gelir (+)", f"€{toplam_gelir:.2f}")
-    c3.metric("Toplam Gider (-)", f"€{toplam_gider:.2f}")
-
-    st.write("---")
-    st.subheader("🎯 Gider Dağılımı (Portföy)")
+    st.altair_chart(donut, use_container_width=True)
     
-    if not df.empty and toplam_gider > 0:
-        # Sadece harcamaları grafikleştirir (Maaşı portföy dağılımına katmaz)
-        gider_df = df[df["Tür"] == "Gider"]
-        grup_df = gider_df.groupby("Kategori")["Miktar (€)"].sum().reset_index()
-        
-        # Harcamaları şık bir kırmızı bar grafiğiyle göster
-        st.bar_chart(grup_df.set_index("Kategori"), color="#ff5252")
-    else:
-        st.info("Henüz bir harcama (gider) verisi yok. İşlem Ekle kısmından ekleyebilirsin.")
+    # Ortadaki "Gider" yazısını alt metin olarak simüle ediyoruz
+    st.markdown(f"<div style='text-align:center; color:#8a99ad; font-size:14px; margin-top:-30px;'>Halkadaki Toplam Gider: <b style='color:#ff5252;'>₺ {toplam_gider:.0f}</b></div>", unsafe_allow_html=True)
+else:
+    st.info("Henüz harcama verisi girilmedi.")
+st.markdown('</div>', unsafe_allow_html=True)
 
-# --- SEKME 3: HESAP HAREKETLERİ ---
-with tab_gecmis:
-    st.subheader("Tüm Hesap Hareketleri")
-    if not df.empty:
-        # En son yapılan işlemi en üstte gösterir
-        st.dataframe(df.sort_index(ascending=False), use_container_width=True, hide_index=True)
-    else:
-        st.write("Henüz bir işlem yapılmadı.")
+# --- 3. KART: BÜTÇE HEDEFLERİ ---
+st.markdown('<div class="row-box">', unsafe_allow_html=True)
+st.markdown('<div class="card-title">Bütçe Hedefleri</div>', unsafe_allow_html=True)
+
+# Yemek Hedefi Örneği
+st.markdown('<div class="sub-text">🍔 Yemek (3950 ₺ harcandı)</div>', unsafe_allow_html=True)
+st.progress(0.75) # Çubuğun doluluk oranı
+
+# Yakıt Hedefi Örneği
+st.markdown('<div class="sub-text">🚗 YAKIT (7300 / 10000 ₺)</div>', unsafe_allow_html=True)
+st.progress(0.73)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# --- 4. DİNAMİK İŞLEM EKLEME ALANI ---
+st.markdown('<div class="row-box">', unsafe_allow_html=True)
+st.markdown('<div class="card-title">➕ Yeni Gelir / Gider Ekle</div>', unsafe_allow_html=True)
+
+islem_turu = st.radio("Tür Seçin:", ["🔴 Gider (-)", "🟢 Gelir (+)"], horizontal=True)
+
+with st.form("yeni_islem_formu", clear_on_submit=True):
+    c1, c2 = st.columns(2)
+    with c1:
+        kat_input = st.text_input("Açıklama / Kategori", placeholder="Örn: Monster, Maaş, Kira").strip()
+    with c2:
+        mik_input = st.number_input("Miktar (₺)", min_value=0.0, step=10.0, format="%.2f")
+    
+    submit = st.form_submit_button("Hesaba İşle")
+    
+    if submit and kat_input and mik_input > 0:
+        tur_net = "Gelir" if "Gelir" in islem_turu else "Gider"
+        yeni_satir = pd.DataFrame([{"Tarih": datetime.now().strftime("%Y-%m-%d"), "Tür": tur_net, "Kategori": kat_input, "Miktar": mik_input}])
+        st.session_state.islemler = pd.concat([st.session_state.islemler, yeni_satir], ignore_index=True)
