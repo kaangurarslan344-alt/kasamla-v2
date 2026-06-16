@@ -23,25 +23,21 @@ st.markdown("""
 if "islemler" not in st.session_state:
     st.session_state.islemler = pd.DataFrame(columns=["Tarih", "Tür", "Kategori", "Miktar"])
 
-# --- YENİ EKLENEN AY/YIL SEÇİCİ ---
-st.markdown('<div class="kasamla-header">Kasamla</div>', unsafe_allow_html=True)
-yil_ay_secenekleri = [f"{y}-{str(m).zfill(2)}" for y in [2026, 2027] for m in range(1, 13)]
-secili_donem = st.selectbox("Dönem Seçin:", yil_ay_secenekleri, index=yil_ay_secenekleri.index(datetime.now().strftime("%Y-%m")))
-
-# Veriyi seçilen döneme göre filtrele
 df = st.session_state.islemler
-df_ay = df[df['Tarih'].str.contains(secili_donem)] if not df.empty else df
 
-# Hesaplamalar (Artık filtrelenmiş df_ay üzerinden)
-toplam_gelir = df_ay[df_ay["Tür"] == "Gelir"]["Miktar"].sum() if not df_ay.empty else 0.0
-toplam_gider = df_ay[df_ay["Tür"] == "Gider"]["Miktar"].sum() if not df_ay.empty else 0.0
+# Üst Başlık
+st.markdown('<div class="kasamla-header">Kasamla</div>', unsafe_allow_html=True)
+st.markdown('<div class="date-range">‹ &nbsp; Bu Ay &nbsp; ›</div>', unsafe_allow_html=True)
+
+toplam_gelir = df[df["Tür"] == "Gelir"]["Miktar"].sum() if not df.empty else 0.0
+toplam_gider = df[df["Tür"] == "Gider"]["Miktar"].sum() if not df.empty else 0.0
 nakit_akisi = toplam_gelir - toplam_gider
 
 # Ana Kart
 akis_class = "nakit-akis-value" if nakit_akisi <= 0 else "nakit-akis-value-pos"
 st.markdown(f"""
     <div class="main-card">
-        <div class="sub-text">{secili_donem} Nakit Akışı</div>
+        <div class="sub-text">Bu Ayki Nakit Akışı</div>
         <div class="{akis_class}">₺ {nakit_akisi:.0f}</div>
         <table style="width:100%; border-top: 1px solid #232a45; padding-top:10px;">
             <tr>
@@ -56,10 +52,11 @@ st.markdown(f"""
 st.markdown('<div class="row-box">', unsafe_allow_html=True)
 st.markdown('<div class="card-title">Harcama Dağılımı</div>', unsafe_allow_html=True)
 
-if not df_ay.empty and toplam_gider > 0:
-    gider_df = df_ay[df_ay["Tür"] == "Gider"].groupby("Kategori")["Miktar"].sum().reset_index()
+if not df.empty and toplam_gider > 0:
+    gider_df = df[df["Tür"] == "Gider"].groupby("Kategori")["Miktar"].sum().reset_index()
     gider_df["Yüzde"] = (gider_df["Miktar"] / toplam_gider * 100).round(1)
     
+    # Donut Grafik
     donut = alt.Chart(gider_df).mark_arc(innerRadius=65, outerRadius=95).encode(
         theta=alt.Theta("Miktar", type="quantitative"),
         color=alt.Color("Kategori", type="nominal", scale=alt.Scale(scheme='category20')),
@@ -67,6 +64,7 @@ if not df_ay.empty and toplam_gider > 0:
     ).properties(height=240)
     st.altair_chart(donut, use_container_width=True)
     
+    # YENİ EKLENEN LİSTE: Kategori | Miktar | %
     st.markdown("---")
     for _, row in gider_df.iterrows():
         st.markdown(f"""
@@ -76,7 +74,7 @@ if not df_ay.empty and toplam_gider > 0:
             </div>
         """, unsafe_allow_html=True)
 else:
-    st.info("Bu dönemde henüz harcama yok.")
+    st.info("Henüz harcama yok.")
 st.markdown('</div>', unsafe_allow_html=True)
 
 # İşlem Ekle
@@ -88,8 +86,7 @@ with st.markdown('<div class="row-box">', unsafe_allow_html=True):
         kat = c1.text_input("Kategori")
         mik = c2.number_input("Miktar", min_value=0.0)
         if st.form_submit_button("Ekle"):
-            # Tarih kısmına 'secili_donem' (YYYY-MM) ekleniyor
-            yeni = pd.DataFrame([{"Tarih": secili_donem, "Tür": "Gelir" if "Gelir" in islem_turu else "Gider", "Kategori": kat, "Miktar": mik}])
+            yeni = pd.DataFrame([{"Tarih": datetime.now().strftime("%Y-%m-%d"), "Tür": "Gelir" if "Gelir" in islem_turu else "Gider", "Kategori": kat, "Miktar": mik}])
             st.session_state.islemler = pd.concat([st.session_state.islemler, yeni], ignore_index=True)
             st.rerun()
 st.markdown('</div>', unsafe_allow_html=True)
